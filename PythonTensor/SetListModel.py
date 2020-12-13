@@ -35,7 +35,7 @@ class SetListModel(QtCore.QAbstractListModel):
             return True
 
     def flags(self, index):
-        return QtCore.Qt.ItemIsEditable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+        return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
 
 
     def insertRows(self, position, rows, data, parent = QtCore.QModelIndex()):
