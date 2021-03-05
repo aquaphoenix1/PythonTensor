@@ -6,7 +6,7 @@ class Visualizer(object):
         self.graphWidget.setBackground('w')
 
     def plot(self, x, y, pen = pg.mkPen(color=(255, 0, 0))):
-        self.graphWidget.plot(x, y, pen = pen, symbol='+', symbolSize=30, symbolBrush=('b'))
+        self.graphWidget.plot(x, y, pen = pen, symbol='+', symbolSize=30)
 
     def clear(self):
         self.graphWidget.clear()

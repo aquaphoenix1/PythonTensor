@@ -27,6 +27,9 @@
     <Compile Include="Controller.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Jump.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="network\Network.py">
       <SubType>Code</SubType>
     </Compile>

@@ -3,7 +3,7 @@ from datetime import date
 
 class AbstractSplitter(object):
     @abstractmethod
-    def split(self, data):
+    def split(self, data, fileName):
         pass
 
     def convertToDate(self, time):

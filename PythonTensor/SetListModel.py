@@ -14,7 +14,7 @@ class SetListModel(QtCore.QAbstractListModel):
             return self.__data[index.row()]
 
         if role == QtCore.Qt.ToolTipRole:
-            return self.__data[index].points
+            return self.__data[index]
 
         if role == QtCore.Qt.DecorationRole:
             pixmax = QtGui.QPixmap(26, 26)
@@ -24,7 +24,7 @@ class SetListModel(QtCore.QAbstractListModel):
         if role == QtCore.Qt.DisplayRole:
             row = index.row()
             value = self.__data[row]
-            return value.number
+            return str(value.center.latitude) + ' ' + str(value.center.longitude)
 
     def setData(self, index, value, role=QtCore.Qt.EditRole):
         if role == QtCore.Qt.EditRole:

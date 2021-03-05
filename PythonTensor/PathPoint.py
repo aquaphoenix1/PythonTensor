@@ -11,6 +11,15 @@ class PathPoint(object):
         self.pointsList = list()
         self.center = CentralPoint(0, 0)
 
+    def getPointsCount(self):
+        return len(self.pointsList)
+
+    def getFirstPoint(self):
+        return self.pointsList[0]
+
+    def getLastPoint(self):
+        return self.pointsList[self.getPointsCount() - 1]
+
     def addPoint(self, point):
         self.pointsList.append(point)
         self.recalculateCenter()
@@ -23,17 +32,19 @@ class PathPoint(object):
             lat = lat + i.latitude
             lon = lon + i.longitude
 
-        length = len(self.pointsList)
+        length = self.getPointsCount()
 
         self.center = CentralPoint(lat / length, lon / length)
 
     def isInsideRadius(self, point):
-        if(len(self.pointsList) == 0):
+        if self.getPointsCount() == 0:
             return True
 
-        d = math.sqrt(math.pow(point.latitude - self.center.latitude, 2) + math.pow(point.longitude - self.center.longitude, 2))
-
         distance = self.distanceInMetersBetweenEarthCoordinates(point.latitude, point.longitude, self.center.latitude, self.center.longitude)
+        
+        if(distance > 1 and distance < self.RADIUS):
+            sf = 0
+        
         return distance < self.RADIUS
 
     def degreesToRadians(self, degrees):
@@ -54,11 +65,11 @@ class PathPoint(object):
         while True:
             self.removeFirstPoint()
             self.recalculateCenter()
-            if len(self.pointsList) == 1 or self.isAllInsideRadius():
+            if self.getPointsCount() == 1 or self.isAllInsideRadius():
                 break
 
     def distanceInMetersBetweenEarthCoordinates(self, lat1, lon1, lat2, lon2):
-        earthRadiusKm = 6371e3
+        earthRadiusKm = 6372795
 
         dPhi = self.degreesToRadians(lat2 - lat1)
         dLyambda = self.degreesToRadians(lon2 - lon1)
@@ -69,7 +80,10 @@ class PathPoint(object):
         return earthRadiusKm * c;
 
     def isMoreTime(self):
-        return False if len(self.pointsList) == 1 else (self.pointsList[len(self.pointsList) - 1].date - self.pointsList[0].date) > self.MAX_TIME * 1000
+        return False if self.getPointsCount() == 1 else (self.pointsList[self.getPointsCount() - 1].date - self.pointsList[0].date) > self.MAX_TIME * 1000
+
+    def calculateTime(self):
+        self.pauseTime = self.pointsList[0].date if self.getPointsCount() == 1 else self.pointsList[self.getPointsCount() - 1].date - self.pointsList[0].date
 
 class CentralPoint(object):
     latitude = 0
@@ -78,3 +92,6 @@ class CentralPoint(object):
     def __init__(self, lat, lon):
         self.latitude = lat
         self.longitude = lon
+
+    def toString(self):
+        return str(self.latitude) + ' ' + str(self.longitude);

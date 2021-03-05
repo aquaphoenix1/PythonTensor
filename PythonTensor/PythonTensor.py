@@ -8,6 +8,8 @@ import pyqtgraph as pg
 from PyQt5 import QtCore
 from Visualizer import Visualizer
 from network.Network import Network
+from Jump import Jump
+from PathPoint import CentralPoint
 
 class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
     Splitter = Splitter();
@@ -27,9 +29,9 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
         self.horizontalLayoutMain.addWidget(graphWidget)
         self.sourceVisualizer = Visualizer(graphWidget)
 
-        graphWidget = pg.PlotWidget()
-        self.horizontalLayoutMain.addWidget(graphWidget)
-        self.clusterVisualizer = Visualizer(graphWidget);
+        #graphWidget = pg.PlotWidget()
+        #self.horizontalLayoutMain.addWidget(graphWidget)
+        #self.clusterVisualizer = Visualizer(graphWidget);
 
         self.pushButtonClusterize.clicked.connect(self.clusterize_click);
 
@@ -43,7 +45,8 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
         f = open(name, 'r')
         content = f.read()
         f.close()
-        content = self.Splitter.Split(content)
+        content = self.Splitter.Split(content, name)
+
         self.clearList()
         self.model.insertRows(0, len(content), content)
 
@@ -54,17 +57,19 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
     currentData = None
 
     def listChangedEvent(self, prev, current):
-        data = self.model.getData(self.listView_6.selectedIndexes()[0].data())
+        data = self.model.getData(self.listView_6.selectedIndexes()[0].row())
         x = []
         y = []
-        for i in range(len(data)):
-            x.append(data[i].latitude)
-            y.append(data[i].longitude)
+        d = data.pointsList
+        for i in range(len(d)):
+            x.append(d[i].latitude)
+            y.append(d[i].longitude)
 
         self.currentData = data;
 
         self.sourceVisualizer.clear()
         self.sourceVisualizer.plot(x, y)
+        #self.sourceVisualizer.plot([data.center.latitude], [data.center.longitude], pg.mkPen(color=(0, 0, 255)))
 
         self.labelSource.setText(str(len(x)))
 
@@ -72,18 +77,17 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
         # Network().loadDataset(data)
 
     def clusterize_click(self):
-        data = Cluster().clusterizeData(self.currentData);
+        d = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', 'C:/Users/aqua_/source/repos/PythonTensor/PythonTensor/Data')
+        data = []
 
-        x = []
-        y = []
-        for i in range(len(data)):
-            x.append(data[i].latitude)
-            y.append(data[i].longitude)
+        with open(d[0], 'r') as f:
+            content = f.read()
 
-        self.clusterVisualizer.clear()
-        self.clusterVisualizer.plot(x, y)
-
-        self.labelClusterize.setText(str(len(x)))
+            for i in content.split('\n'):
+                if not i == "":
+                    splitData = i.split(' ')
+                    data.append(Jump(CentralPoint(float(splitData[0]), float(splitData[1])), CentralPoint(float(splitData[2]), float(splitData[3])), int(splitData[4])))
+        Network().test(data)
 
 
 def main():

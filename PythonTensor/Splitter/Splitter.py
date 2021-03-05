@@ -2,44 +2,13 @@ from Splitter.AbstractSplitter import AbstractSplitter
 from datetime import datetime, date, time
 from Point import Point
 from Set import Set
-from PathPoint import PathPoint
+from PathPoint import *
+from Jump import Jump
 
 class Splitter(AbstractSplitter):
-    def Split(self, data):
+    def Split(self, data, fileName):
         data = data.split('\n')
         sets = []
-        #d = []
-        #index = 0
-        #setsSize = 0
-        #firstTime = None
-        #try:
-        #    for i in data:
-        #        if len(i) == 0:
-        #            continue
-        #        splitData = i.split(',')
-        #        if firstTime is None:
-        #            firstTime = self.convertToDate(splitData[0])
-        #            d.insert(index, Point(int(splitData[0]),
-        #            float(splitData[1]), float(splitData[2]),
-        #            float(splitData[3]), float(splitData[4]),
-        #            float(splitData[5])))
-        #            index = index + 1
-        #        else:
-        #            date = self.convertToDate(splitData[0])
-        #            if abs((date - firstTime).days) == 0:
-        #                d.insert(index, Point(int(splitData[0]),
-        #                float(splitData[1]), float(splitData[2]),
-        #                float(splitData[3]), float(splitData[4]),
-        #                float(splitData[5])))
-        #                index = index + 1
-        #            else:
-        #                sets.insert(setsSize, Set(setsSize, d))
-        #                setsSize = setsSize + 1
-        #                index = 0
-        #                d = []
-        #                firstTime = None
-        #except Exception as ex:
-        #    print(ex)
 
         currentPathPoint = PathPoint()
 
@@ -47,12 +16,15 @@ class Splitter(AbstractSplitter):
             for i in data:
                 if not i == "":
                     splitData = i.split(',')
-                    point = Point(int(splitData[0]), float(splitData[1]), float(splitData[2]), float(splitData[3]), float(splitData[4]), float(splitData[5]))
+                    lat = self.convertCoord(float(splitData[2]))
+                    lon = self.convertCoord(-float(splitData[3]))
+                    point = Point(int(splitData[0]), float(splitData[1]), lat, lon, float(splitData[4]), float(splitData[5]))
                     if currentPathPoint.isInsideRadius(point):
                         currentPathPoint.addPoint(point)
                     else:
                         if currentPathPoint.isMoreTime():
-                            sets.append(currentPathPoint)
+                            if not currentPathPoint.getPointsCount() == 1:
+                                sets.append(currentPathPoint)
                             currentPathPoint = PathPoint()
                             currentPathPoint.addPoint(point)
                         else:
@@ -60,7 +32,29 @@ class Splitter(AbstractSplitter):
                             currentPathPoint.recalculate()
         except Exception:
             a = 0
-        
-        sets.append(currentPathPoint)
+            
+        if not currentPathPoint.getPointsCount() == 1:
+            sets.append(currentPathPoint)
+
+        jumpList = self.converToJumpList(sets)
+        with open(fileName + '.txt', 'w') as f:
+            for i in jumpList:
+                f.write(i.departurePoint.toString() + ' ' + i.destination.toString() + ' ' + str(i.time) + '\n')
+
 
         return sets
+
+    def converToJumpList(self, sets):
+        jumpList = list()
+        for i in range(len(sets) - 1):
+            time = sets[i+1].getFirstPoint().date - sets[i].getLastPoint().date
+            jumpList.append(Jump(sets[i].center, sets[i+1].center, time))
+
+        return jumpList
+
+    def convertCoord(self, coord):
+        grad = int(coord)
+        g = int(grad / 100)
+        m = grad - (g * 100)
+        sec = int((coord - grad) * 100)
+        return g + m / 60 + sec / 3600
