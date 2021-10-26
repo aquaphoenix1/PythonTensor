@@ -39,16 +39,17 @@ class Splitter(AbstractSplitter):
         jumpList = self.converToJumpList(sets)
         with open(fileName + '.txt', 'w') as f:
             for i in jumpList:
-                f.write(i.departurePoint.toString() + ' ' + i.destination.toString() + ' ' + str(i.time) + '\n')
+                f.write(i.departurePoint.toString() + ' ' + i.destination.toString() + ' ' + str(i.time) +  ' ' + str(i.pauseTime) + '\n')
 
 
-        return sets
+        return jumpList
 
     def converToJumpList(self, sets):
         jumpList = list()
         for i in range(len(sets) - 1):
             time = sets[i+1].getFirstPoint().date - sets[i].getLastPoint().date
-            jumpList.append(Jump(sets[i].center, sets[i+1].center, time))
+            pauseTime = sets[i].getLastPoint().date - sets[i].getFirstPoint().date
+            jumpList.append(Jump(sets[i].center, sets[i+1].center, time, pauseTime))
 
         return jumpList
 

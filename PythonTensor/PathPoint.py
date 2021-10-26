@@ -9,7 +9,7 @@ class PathPoint(object):
 
     def __init__(self):
         self.pointsList = list()
-        self.center = CentralPoint(0, 0)
+        self.center = CentralPoint(0, 0, 0)
 
     def getPointsCount(self):
         return len(self.pointsList)
@@ -34,20 +34,18 @@ class PathPoint(object):
 
         length = self.getPointsCount()
 
-        self.center = CentralPoint(lat / length, lon / length)
+        self.center = CentralPoint(lat / length, lon / length, 0)
 
     def isInsideRadius(self, point):
         if self.getPointsCount() == 0:
             return True
 
-        distance = self.distanceInMetersBetweenEarthCoordinates(point.latitude, point.longitude, self.center.latitude, self.center.longitude)
-        
-        if(distance > 1 and distance < self.RADIUS):
-            sf = 0
+        distance = PathPoint.distanceInMetersBetweenEarthCoordinates(point.latitude, point.longitude, self.center.latitude, self.center.longitude)
         
         return distance < self.RADIUS
-
-    def degreesToRadians(self, degrees):
+    
+    @staticmethod
+    def degreesToRadians(degrees):
         return degrees * math.pi / 180.0
 
     def isAllInsideRadius(self):
@@ -68,13 +66,14 @@ class PathPoint(object):
             if self.getPointsCount() == 1 or self.isAllInsideRadius():
                 break
 
-    def distanceInMetersBetweenEarthCoordinates(self, lat1, lon1, lat2, lon2):
+    @staticmethod
+    def distanceInMetersBetweenEarthCoordinates(lat1, lon1, lat2, lon2):
         earthRadiusKm = 6372795
 
-        dPhi = self.degreesToRadians(lat2 - lat1)
-        dLyambda = self.degreesToRadians(lon2 - lon1)
-        phi1 = self.degreesToRadians(lat1)
-        phi2 = self.degreesToRadians(lat2)
+        dPhi = PathPoint.degreesToRadians(lat2 - lat1)
+        dLyambda = PathPoint.degreesToRadians(lon2 - lon1)
+        phi1 = PathPoint.degreesToRadians(lat1)
+        phi2 = PathPoint.degreesToRadians(lat2)
         a = math.pow(math.sin(dPhi / 2.0), 2) + math.pow(math.sin(dLyambda / 2.0), 2) * math.cos(phi1) * math.cos(phi2)
         c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1 - a)) 
         return earthRadiusKm * c;
@@ -88,10 +87,16 @@ class PathPoint(object):
 class CentralPoint(object):
     latitude = 0
     longitude = 0
+    number = None
 
-    def __init__(self, lat, lon):
+    def __init__(self, lat, lon, num):
         self.latitude = lat
         self.longitude = lon
+        self.number = num
 
     def toString(self):
         return str(self.latitude) + ' ' + str(self.longitude);
+
+    def equal(self, point):
+        #return self.latitude == point.latitude and self.longitude == point.longitude
+        return self.number == point.number

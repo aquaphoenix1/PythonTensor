@@ -8,3 +8,7 @@ class AbstractNormalizer(ABC):
     @abstractmethod
     def FitAndNormalize(self, data):
         pass
+
+    @abstractmethod
+    def Denormalize(self, data):
+        pass

@@ -21,13 +21,31 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="CharacteristicCalculators\Controller.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="CharacteristicCalculators\Plotter.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Clusterizer\Cluster.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Controller.py">
+    <Compile Include="NetworkController.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Jump.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Levy.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="LevyCalculator.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Locations\Location.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Locations\LocationsCalculator.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="network\Network.py">
@@ -36,7 +54,7 @@
     <Compile Include="Normalizer\AbstractNormalizer.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Normalizer\MiniMaxNormalizer.py">
+    <Compile Include="Normalizer\MinMaxNormalizer.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="PathPoint.py">
@@ -66,6 +84,8 @@
   <ItemGroup>
     <Folder Include="network\" />
     <Folder Include="Clusterizer\" />
+    <Folder Include="Locations\" />
+    <Folder Include="CharacteristicCalculators\" />
     <Folder Include="Normalizer\" />
     <Folder Include="Splitter\" />
   </ItemGroup>

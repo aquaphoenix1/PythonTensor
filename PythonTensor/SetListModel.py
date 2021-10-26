@@ -24,7 +24,7 @@ class SetListModel(QtCore.QAbstractListModel):
         if role == QtCore.Qt.DisplayRole:
             row = index.row()
             value = self.__data[row]
-            return str(value.center.latitude) + ' ' + str(value.center.longitude)
+            return str(value.latitude) + ' ' + str(value.longitude)
 
     def setData(self, index, value, role=QtCore.Qt.EditRole):
         if role == QtCore.Qt.EditRole:
