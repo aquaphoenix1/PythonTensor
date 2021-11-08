@@ -13,12 +13,15 @@ class NetworkController(object):
     locationsCount = None
 
     trainData = None
+    trainPoints = None
 
     generateLocationsArray = None
     generateParametersArray = None
     firstPoints = None
 
     Network = Network()
+
+    window = None
 
     def __init__(self):
         self.data = None
@@ -49,12 +52,14 @@ class NetworkController(object):
         return max, min
 
     def setTrainData(self, data, locations):
+        self.trainPoints = data
         self.locationsCount = len(locations)
         self.distancesInLocation = []
         self.distancesBetweenLocation = []
         self.firstPoints = []
         self.trainStartTimes = []
-        window = 10  ###########################################
+        self.window = 3  ###########################################
+        window = self.window
         d = []
         num = 0
         for i in data:
@@ -78,8 +83,8 @@ class NetworkController(object):
                     self.firstPoints[num].append(j.destination)
                 if dep.Number == dest.Number:
                     self.distancesInLocation[len(self.distancesInLocation)-1][dep.Number] = self.distancesInLocation[len(self.distancesInLocation)-1][dep.Number] + PathPoint.distanceInMetersBetweenEarthCoordinates(j.departurePoint.latitude, j.departurePoint.longitude, j.destination.latitude, j.destination.longitude)
-                else:
-                    self.distancesBetweenLocation[len(self.distancesBetweenLocation)-1][dep.Number] = self.distancesBetweenLocation[len(self.distancesBetweenLocation)-1][dep.Number] + PathPoint.distanceInMetersBetweenEarthCoordinates(j.departurePoint.latitude, j.departurePoint.longitude, j.destination.latitude, j.destination.longitude)
+                #else:
+                    #self.distancesBetweenLocation[len(self.distancesBetweenLocation)-1][dep.Number] = self.distancesBetweenLocation[len(self.distancesBetweenLocation)-1][dep.Number] + PathPoint.distanceInMetersBetweenEarthCoordinates(j.departurePoint.latitude, j.departurePoint.longitude, j.destination.latitude, j.destination.longitude)
             d.append(d1)
             num = num + 1
         self.data = d
@@ -133,7 +138,7 @@ class NetworkController(object):
         #self.plotCharacteristics()
 
     def plotCharacteristics(self, data):
-        Plotter.plot(self.trainData, data, self.distancesInLocation, self.distancesBetweenLocation)
+        Plotter.plot(self.trainData, data, self.distancesInLocation, self.trainPoints, self.locationsCount)
 
     def getTrainData(self):
         return self.data
@@ -145,7 +150,10 @@ class NetworkController(object):
         return 4; #TODO
 
     def generate(self, locations, parameters):
-        result = self.Network.generate(locations, parameters, self.trainData, self.firstPoints)
+        count = [0] * len(self.trainData)
+        for i in range(len(self.trainData)):
+            count[i] = len(self.trainData[i][0]) - self.window ###############################
+        result = self.Network.generate(locations, parameters, count, self.firstPoints)
         self.plotCharacteristics(result)
 
 class LocationJump(object):

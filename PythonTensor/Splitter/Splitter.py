@@ -40,22 +40,3 @@ class Splitter(AbstractSplitter):
         with open(fileName + '.txt', 'w') as f:
             for i in jumpList:
                 f.write(i.departurePoint.toString() + ' ' + i.destination.toString() + ' ' + str(i.time) +  ' ' + str(i.pauseTime) + '\n')
-
-
-        return jumpList
-
-    def converToJumpList(self, sets):
-        jumpList = list()
-        for i in range(len(sets) - 1):
-            time = sets[i+1].getFirstPoint().date - sets[i].getLastPoint().date
-            pauseTime = sets[i].getLastPoint().date - sets[i].getFirstPoint().date
-            jumpList.append(Jump(sets[i].center, sets[i+1].center, time, pauseTime))
-
-        return jumpList
-
-    def convertCoord(self, coord):
-        grad = int(coord)
-        g = int(grad / 100)
-        m = grad - (g * 100)
-        sec = int((coord - grad) * 100)
-        return g + m / 60 + sec / 3600

@@ -57,6 +57,12 @@
     <Compile Include="Normalizer\MinMaxNormalizer.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Parser\DARTParser.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Parser\KAISTParser.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="PathPoint.py">
       <SubType>Code</SubType>
     </Compile>
@@ -73,6 +79,9 @@
     <Compile Include="Splitter\AbstractSplitter.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Splitter\KAISTSplitter.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Splitter\Splitter.py">
       <SubType>Code</SubType>
     </Compile>
@@ -86,6 +95,7 @@
     <Folder Include="Clusterizer\" />
     <Folder Include="Locations\" />
     <Folder Include="CharacteristicCalculators\" />
+    <Folder Include="Parser\" />
     <Folder Include="Normalizer\" />
     <Folder Include="Splitter\" />
   </ItemGroup>

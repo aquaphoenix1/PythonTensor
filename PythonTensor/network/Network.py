@@ -153,17 +153,17 @@ class Network(object):
         globalResult = []
 
         for i in range(len(locations)):
-            result = []
-            result.append(locations[i][len(locations[i])-1])
-            timeResult = []
+            result = locations[i].copy()
+            #result.append(locations[i][len(locations[i])-1])
+            timeResult = parameters[i].copy()
             pointsResult = []
             i1 = 0
             startPoints = locations[i].copy()
             timePoints = parameters[i].copy()
             firstPoints = firstPointsArray[i].copy()
 
-            while(i1 < len(countArr[i][1])):
-                print(str(i) + ':' + str(i1 + 1) + ' from ' + str(len(countArr[i][1])))
+            while(i1 < countArr[i]):
+                print(str(i) + ':' + str(i1 + 1) + ' from ' + str(countArr[i]))
                 glue = self.glueArrays(startPoints)
                 res = self.model.predict([glue])
 
@@ -206,8 +206,7 @@ class Network(object):
 
                 i1 = i1 + 1
 
-            firstPoints.pop(0)
-            firstPoints.pop(0)
+            timeResult.pop()
             globalResult.append([result, timeResult, firstPoints])
 
         #countOfErrors = self.checkGeneration(result)

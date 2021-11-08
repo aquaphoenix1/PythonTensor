@@ -4,12 +4,15 @@ class PathPoint(object):
     RADIUS = 5
     MAX_TIME = 30
 
-    pointsList = None
-    center = None
-
     def __init__(self):
         self.pointsList = list()
         self.center = CentralPoint(0, 0, 0)
+
+    def serialize(obj):
+        return {
+            "pointsList": obj.pointsList,
+            "center": json.dumps(obj.center, ensure_ascii=False, default=CentralPoint.serialize)
+            }
 
     def getPointsCount(self):
         return len(self.pointsList)
@@ -42,7 +45,7 @@ class PathPoint(object):
 
         distance = PathPoint.distanceInMetersBetweenEarthCoordinates(point.latitude, point.longitude, self.center.latitude, self.center.longitude)
         
-        return distance < self.RADIUS
+        return distance < PathPoint.RADIUS
     
     @staticmethod
     def degreesToRadians(degrees):
@@ -79,20 +82,26 @@ class PathPoint(object):
         return earthRadiusKm * c;
 
     def isMoreTime(self):
-        return False if self.getPointsCount() == 1 else (self.pointsList[self.getPointsCount() - 1].date - self.pointsList[0].date) > self.MAX_TIME * 1000
+        return False if self.getPointsCount() == 1 else (self.pointsList[self.getPointsCount() - 1].date - self.pointsList[0].date) > PathPoint.MAX_TIME * 1000
 
     def calculateTime(self):
         self.pauseTime = self.pointsList[0].date if self.getPointsCount() == 1 else self.pointsList[self.getPointsCount() - 1].date - self.pointsList[0].date
 
 class CentralPoint(object):
-    latitude = 0
-    longitude = 0
-    number = None
-
     def __init__(self, lat, lon, num):
         self.latitude = lat
         self.longitude = lon
         self.number = num
+
+    def serialize(obj):
+        return {
+            "latitude": obj.latitude,
+            "longitude": obj.longitude,
+            "number": obj.number
+            }
+
+    def deserialize(obj):
+        return CentralPoint(obj['latitude'], obj['longitude'], obj['number'])
 
     def toString(self):
         return str(self.latitude) + ' ' + str(self.longitude);

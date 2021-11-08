@@ -2,6 +2,7 @@ import sys  # sys нужен для передачи argv в QApplication
 from PyQt5 import QtWidgets
 import UI  # Это наш конвертированный файл дизайна
 from Splitter.Splitter import Splitter
+from Splitter.KAISTSplitter import KAISTSplitter
 from Clusterizer.Cluster import Cluster
 from SetListModel import SetListModel
 import pyqtgraph as pg
@@ -11,9 +12,13 @@ from Jump import Jump
 from PathPoint import CentralPoint
 from NetworkController import NetworkController
 from Locations.LocationsCalculator import LocationsCalculator
+from Parser.DARTParser import DARTParser
+from Parser.KAISTParser import KAISTParser
+from Locations.Location import Location
+
+import json
 
 class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
-    Splitter = Splitter()
     Controller = NetworkController()
 
     def __init__(self):
@@ -24,6 +29,9 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
         self.pushButtonLoadFile_6.clicked.connect(self.browse_file)
         self.pushButtonConvert_7.clicked.connect(self.convert_click)
         self.pushButtonLoadFileToNeuralNetwork.clicked.connect(self.loadTraining_click)
+        self.pushButtonDeserialize.clicked.connect(self.deserialize)
+        self.pushButtonSerialize.clicked.connect(self.serialize)
+        self.pushButtonPlotTrain.clicked.connect(self.plotTrain)
         self.pushButtonInit.clicked.connect(self.netInit)
         self.pushButtonTrain_2.clicked.connect(self.train_click)
         self.pushButtonTesting.clicked.connect(self.testing_click)
@@ -49,7 +57,7 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
         self.textEditFilePath_6.setText(fname)
 
     def loadTraining_click(self):
-        d = QtWidgets.QFileDialog.getOpenFileNames(self, 'Open file', 'C:/Users/aqua_/source/repos/PythonTensor/PythonTensor/Data/ConvertedData')
+        d = QtWidgets.QFileDialog.getOpenFileNames(self, 'Open file', 'C:/Users/aqua_/source/repos/PythonTensor/PythonTensor/Data/ConvertedData/KAIST')
 
         data = []
         points = []
@@ -63,32 +71,42 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
                     plotData = []
                     num = num + 1
 
-                    for i in content.split('\n'):
-                        if not i == "":
-                            splitData = i.split(' ')
-                            firstPoint = CentralPoint(float(splitData[0]), float(splitData[1]), num)
-                            num = num + 1
-                            secondPoint = CentralPoint(float(splitData[2]), float(splitData[3]), num)
-                            time = int(splitData[4])
-                            pauseTime = int(splitData[5])
-
-                            if len(plotData) == 0:
-                                plotData.append(firstPoint)
-                                points.append(firstPoint)
-                            plotData.append(secondPoint)
-                            points.append(secondPoint)
-
-                            jump = Jump(firstPoint, secondPoint, time, pauseTime)
-                            arr.append(jump)
+                    if content.split('\n')[0].find('\t') == -1:
+                        num = DARTParser.parse(content, num, plotData, points, arr)
+                    else:
+                        num = KAISTParser.parse(content, num, plotData, points, arr)
 
                     data.append(arr)
 
-        locations = LocationsCalculator().calculate(points)
+        else:
+            return
+
+        locations = LocationsCalculator().calculate(points)        
 
         self.plot(data)
         self.plotLocations(locations)
         self.Controller.setTrainData(data, locations)
-        self.fillTable(plotData)
+        #self.fillTable(plotData)
+
+    def serialize(self):
+        with open('locations.txt', 'w+') as f:
+            json.dump(LocationsCalculator.locations, f, ensure_ascii=False, default=Location.to_dict)
+
+        with open('data.txt', 'w+') as f:
+            json.dump(self.Controller.trainPoints, f, ensure_ascii=False, default=Jump.to_dict)
+
+    def deserialize(self):
+        with open('locations.txt', 'r') as f:
+            locations = json.load(f, object_hook=Location.hook)
+
+        with open('data.txt', 'r') as f:
+            data = json.load(f, object_hook=Jump.hook)
+
+        self.plot(data)
+        self.plotLocations(locations)
+        self.Controller.setTrainData(data, locations)
+        LocationsCalculator.locations = locations
+        #self.fillTable(plotData)
 
     def testing_click(self):
         count = int(self.textEditTestingCount.toPlainText())
@@ -124,17 +142,17 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
 
 
     def convert_click(self):
-        name = self.textEditFilePath_6.toPlainText()
-        f = open(name, 'r')
-        content = f.read()
-        f.close()
-        content = self.Splitter.Split(content, name)
+        #d = QtWidgets.QFileDialog.getOpenFileNames(self, 'Open file', 'C:/Users/aqua_/source/repos/PythonTensor/PythonTensor/Data/KAIST')
 
-        #self.clearList()
-        #self.model.insertRows(0, len(content), content)
-
-        self.plot(content)
-        self.Controller.setTrainData([content])
+        #for i in d[0]:
+            name = self.textEditFilePath_6.toPlainText() #i
+            f = open(name, 'r')
+            content = f.read()
+            f.close()
+            if not content.split('\n')[0].find('\t') == -1:
+                KAISTSplitter().Split(content, name)
+            else:
+                Splitter().Split(content, name)
 
     def plot(self, content):
         arr = []
@@ -181,6 +199,9 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
 
 
         # Network().loadDataset(data)
+
+    def plotTrain(self):
+        self.Controller.plotCharacteristics([])
 
     def train_click(self):
         trainPercent = int(self.textEditTrainPercent_2.toPlainText())

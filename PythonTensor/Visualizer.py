@@ -38,7 +38,8 @@ class Visualizer(object):
             self.plot(arr[i][0], arr[i][1], self.getColor(i), self.getSymbol(i))
 
     def plot(self, x, y, pen = pg.mkPen(color=(255, 0, 0)), symbol='+'):
-        self.graphWidget.plot(x, y, pen = pen, symbol=symbol, symbolSize=30)
+        #self.graphWidget.plot(x, y, pen = pen, symbol=symbol, symbolSize=30)
+        pass
 
     def clear(self):
         self.graphWidget.clear()

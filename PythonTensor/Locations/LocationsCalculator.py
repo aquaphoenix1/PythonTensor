@@ -13,7 +13,9 @@ class LocationsCalculator(object):
         add = False
         location = None
         num = 0
+        source = len(v)
         while not len(v) == 0:
+            print('Remaining ' + str(len(v)) + ' of ' + str(source))
             if not add:
                 if not location == None:
                     locations.append(location)

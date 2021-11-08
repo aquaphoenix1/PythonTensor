@@ -51,8 +51,8 @@ class Controller(object):
     def calculatePauseTime(dataLocations, dataParameters):
         res = [0] * len(dataLocations[0])
 
-        for i in range(len(dataParameters)):
-            res[dataLocations[i+1].index(1)] = res[dataLocations[i+1].index(1)] + dataParameters[i][1]
+        for i in range(1, len(dataParameters)):
+            res[dataLocations[i].index(1)] = res[dataLocations[i].index(1)] + dataParameters[i][1]
 
         return res
 
