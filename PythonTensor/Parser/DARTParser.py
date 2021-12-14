@@ -1,5 +1,6 @@
 from PathPoint import CentralPoint
 from Jump import Jump
+from PathPoint import PathPoint
 
 class DARTParser(object):
     @staticmethod
@@ -12,6 +13,10 @@ class DARTParser(object):
                 secondPoint = CentralPoint(float(splitData[2]), float(splitData[3]), num)
                 time = int(splitData[4])
                 pauseTime = int(splitData[5])
+                
+                d = PathPoint.distanceInMetersBetweenEarthCoordinates(firstPoint.latitude, firstPoint.longitude, secondPoint.latitude, secondPoint.longitude)
+                if d > 5000:
+                    d = 0
 
                 if len(plotData) == 0:
                     plotData.append(firstPoint)

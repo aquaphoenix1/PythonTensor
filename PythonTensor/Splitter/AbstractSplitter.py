@@ -22,7 +22,7 @@ class AbstractSplitter(object):
         jumpList = list()
         for i in range(len(sets) - 1):
             time = sets[i+1].getFirstPoint().date - sets[i].getLastPoint().date
-            pauseTime = sets[i].getLastPoint().date - sets[i].getFirstPoint().date
+            pauseTime = sets[i+1].getLastPoint().date - sets[i+1].getFirstPoint().date
             jumpList.append(Jump(sets[i].center, sets[i+1].center, time, pauseTime))
 
         return jumpList

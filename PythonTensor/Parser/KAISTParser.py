@@ -25,6 +25,7 @@ class KAISTParser(object):
             points.append(secondPoint)
 
             jump = Jump(firstPoint, secondPoint, time2-time1, 0)
+
             arr.append(jump)
 
         return num

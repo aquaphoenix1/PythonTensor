@@ -15,6 +15,14 @@ from Locations.LocationsCalculator import LocationsCalculator
 from Parser.DARTParser import DARTParser
 from Parser.KAISTParser import KAISTParser
 from Locations.Location import Location
+from matplotlib.backends.backend_qt5agg import FigureCanvas
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from CharacteristicCalculators.Plotter import Plotter
+import matplotlib.pyplot as plt
+import os
+
+import numpy as np
 
 import json
 
@@ -22,39 +30,105 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
     Controller = NetworkController()
 
     def __init__(self):
-        # Это здесь нужно для доступа к переменным, методам
-        # и т.д.  в файле design.py
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
         super().__init__()
-        self.setupUi(self)  # Это нужно для инициализации нашего дизайна
-        self.pushButtonLoadFile_6.clicked.connect(self.browse_file)
-        self.pushButtonConvert_7.clicked.connect(self.convert_click)
-        self.pushButtonLoadFileToNeuralNetwork.clicked.connect(self.loadTraining_click)
+        self.setupUi(self)
+        self.pushButtonConvert.clicked.connect(self.convert_click)
         self.pushButtonDeserialize.clicked.connect(self.deserialize)
         self.pushButtonSerialize.clicked.connect(self.serialize)
         self.pushButtonPlotTrain.clicked.connect(self.plotTrain)
         self.pushButtonInit.clicked.connect(self.netInit)
-        self.pushButtonTrain_2.clicked.connect(self.train_click)
-        self.pushButtonTesting.clicked.connect(self.testing_click)
-        self.textEditFilePath_6.setText('C:/Users/aqua_/source/repos/GPSConverter/GPSConverter/bin/Debug/ConvertedData/1.txtPC.csv')
+        self.pushButtonTrain.clicked.connect(self.train_click)
+        #self.pushButtonTesting.clicked.connect(self.testing_click)
+        self.pushButtonGenerate.clicked.connect(self.testing_click)
+        self.pushButtonNetSerialize.clicked.connect(self.pushButtonNetSerializeClick)
+        self.pushButtonNetDeserialize.clicked.connect(self.pushButtonNetDeserializeClick)
+        self.pushButtonAddGraph.clicked.connect(self.pushButtonAddGraphClick)
+        self.pushButtonClearGraph.clicked.connect(self.pushButtonClearGraphClick)
+        self.pushButtonPlotNewWindow.clicked.connect(self.pushButtonPlotNewWindowClick)
         self.model = SetListModel()
         #self.listView_6.setModel(self.model)
         #self.listView_6.selectionModel().selectionChanged.connect(self.listChangedEvent)
-        graphWidget = pg.PlotWidget()
-        self.verticalLayoutMainNetwork.addWidget(graphWidget)
-        self.sourceVisualizer = Visualizer(graphWidget)
-
         #graphWidget = pg.PlotWidget()
-        self.listView.setModel(self.model)
+        #self.verticalLayoutVisualize.addWidget(graphWidget)
+        #self.sourceVisualizer = Visualizer(graphWidget)
+
+        self.tabWidget.currentChanged.connect(self.tabChanged)
+        self.tabWidgetGraph.currentChanged.connect(self.tabWidgetGraphChanged)
+        self.checkBoxPlotTrained.clicked.connect(self.checkBoxPlotTrainedClick)
+
+        fig = Plotter.initFigure()
+        self.plotWidget = FigureCanvas(Plotter.fig)
+        lay = QtWidgets.QVBoxLayout(self.verticalWidget)  
+        lay.setContentsMargins(0, 0, 0, 0)      
+        lay.addWidget(self.plotWidget)
+
+        self.bar = None
+        
+        #graphWidget = pg.PlotWidget()
+        #self.listView.setModel(self.model)
         #self.clusterVisualizer = Visualizer(graphWidget);
 
-    def netInit(self):
-        window = int(self.textEditWindow.toPlainText())
-        self.Controller.Network.init(window, self.Controller.getFeaturesCount(), self.Controller.getLocationsCount())
+    def pushButtonPlotNewWindowClick(self):
+        d = QtWidgets.QFileDialog.getOpenFileNames(self, 'Open file', 'C:/Users/aqua_/source/repos/PythonTensor/PythonTensor/generated')
+        if(len(d[0]) != 0):
+            res = []
+            for fname in d[0]:
+                with open(fname, 'r') as f:
+                    obj = json.load(f, object_hook=CentralPoint.deserialize)
+                    res.append(obj)
+            Plotter.plot(res, self.Controller.locationsCount, self.Controller.minTime, self.Controller.maxTime, self.Controller.minPauseTime, self.Controller.maxPauseTime, self.Controller.levyCoeff, 'softmax')
 
+    def pushButtonClearGraphClick(self):
+        Plotter.clear()
+
+        state = self.checkBoxPlotTrained.checkState()
+        if state == 2:
+            Plotter.plotT(self.tabWidgetGraph.currentIndex())
+
+    def checkBoxPlotTrainedClick(self):
+        self.tabWidgetGraphChanged(-1)
+
+    def pushButtonAddGraphClick(self):
+        d = QtWidgets.QFileDialog.getOpenFileNames(self, 'Open file', 'C:/Users/aqua_/source/repos/PythonTensor/PythonTensor/generated')
+        if(len(d[0]) != 0):
+            Plotter.clearGraph()
+            res = []
+            for fname in d[0]:
+                with open(fname, 'r') as f:
+                    obj = json.load(f, object_hook=CentralPoint.deserialize)
+                    res.append(obj)
+            Plotter.appendData(res)
+            state = self.checkBoxPlotTrained.checkState()
+            if state == 2:
+                Plotter.plotT(self.tabWidgetGraph.currentIndex())
+            Plotter.plotG(self.tabWidgetGraph.currentIndex(), self.Controller.locationsCount, self.Controller.minTime, self.Controller.maxTime, self.Controller.minPauseTime, self.Controller.maxPauseTime, self.Controller.levyCoeff)
+
+    def tabChanged(self, num):
+        if num == 1:
+            self.bar = NavigationToolbar(self.plotWidget, self)
+            self.addToolBar(QtCore.Qt.BottomToolBarArea, self.bar)
+        else:
+            if not self.bar == None:
+                self.removeToolBar(self.bar)
+                self.bar = None
+
+    def tabWidgetGraphChanged(self, num):
+        Plotter.clearGraph()
+
+        state = self.checkBoxPlotTrained.checkState()
+        if state == 2:
+            Plotter.plotT(self.tabWidgetGraph.currentIndex())
+        Plotter.plotG(self.tabWidgetGraph.currentIndex(), self.Controller.locationsCount, self.Controller.minTime, self.Controller.maxTime, self.Controller.minPauseTime, self.Controller.maxPauseTime, self.Controller.levyCoeff)
+
+
+    def netInit(self):
+        window = 5#int(self.textEditWindow.toPlainText())
+        self.Controller.Network.init(self.Controller.getWindowSize(), self.Controller.getFeaturesCount(), self.Controller.getLocationsCount(), self.Controller.histCount, self.Controller.lastLocationsWindow)
 
     def browse_file(self):
         fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', 'C:/Users/aqua_/source/repos/GPSConverter/GPSConverter/bin/Debug/ConvertedData/')[0]
-        self.textEditFilePath_6.setText(fname)
+        self.textEditFilePath.setText(fname)
 
     def loadTraining_click(self):
         d = QtWidgets.QFileDialog.getOpenFileNames(self, 'Open file', 'C:/Users/aqua_/source/repos/PythonTensor/PythonTensor/Data/ConvertedData/KAIST')
@@ -74,7 +148,7 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
                     if content.split('\n')[0].find('\t') == -1:
                         num = DARTParser.parse(content, num, plotData, points, arr)
                     else:
-                        num = KAISTParser.parse(content, num, plotData, points, arr)
+                        num = KAISTParser.parse(content, num, plotData, points, arr) ##########не нужно?
 
                     data.append(arr)
 
@@ -83,9 +157,11 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
 
         locations = LocationsCalculator().calculate(points)        
 
-        self.plot(data)
-        self.plotLocations(locations)
+        #self.plot(data)
+        #self.plotLocations(locations)
         self.Controller.setTrainData(data, locations)
+
+        self.pushButtonClearGraphClick()
         #self.fillTable(plotData)
 
     def serialize(self):
@@ -102,23 +178,26 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
         with open('data.txt', 'r') as f:
             data = json.load(f, object_hook=Jump.hook)
 
-        self.plot(data)
-        self.plotLocations(locations)
-        self.Controller.setTrainData(data, locations)
+        #self.plot(data)
+        #self.plotLocations(locations)
+        window = int(self.textBrowserWindow.toPlainText())
+        self.Controller.setTrainData(data, locations, window)
         LocationsCalculator.locations = locations
+
+        self.pushButtonClearGraphClick()
         #self.fillTable(plotData)
 
     def testing_click(self):
-        count = int(self.textEditTestingCount.toPlainText())
-        startPoints = self.textEditTestingStart.toPlainText().split('\n')
-        data = []
-        for i in range(len(startPoints)):
-            if not startPoints[i] == '':
-                point = startPoints[i].split(' ')
-                for k in range(len(point)):
-                    point[k] = float(point[k])
-                #a = Controller.Network.normalize([point])
-                data.append(point)
+        #count = int(self.textEditTestingCount.toPlainText())
+        #startPoints = self.textEditTestingStart.toPlainText().split('\n')
+        #data = []
+        #for i in range(len(startPoints)):
+        #    if not startPoints[i] == '':
+        #        point = startPoints[i].split(' ')
+        #        for k in range(len(point)):
+        #            point[k] = float(point[k])
+        #        #a = Controller.Network.normalize([point])
+        #        data.append(point)
 
         self.Controller.generate(self.Controller.generateLocationsArray, self.Controller.generateParametersArray)
         #result = Controller.Network.normalizer.Denormalize(result)
@@ -142,17 +221,70 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
 
 
     def convert_click(self):
-        #d = QtWidgets.QFileDialog.getOpenFileNames(self, 'Open file', 'C:/Users/aqua_/source/repos/PythonTensor/PythonTensor/Data/KAIST')
+        d = QtWidgets.QFileDialog.getOpenFileNames(self, 'Open file', 'C:/Users/aqua_/source/repos/PythonTensor/PythonTensor/Data/KAIST')
+        window = int(self.textBrowserWindow.toPlainText())
+        splitter = KAISTSplitter()
 
-        #for i in d[0]:
-            name = self.textEditFilePath_6.toPlainText() #i
+        sets = []
+        jumps = []
+        num = 0
+
+        a = []
+
+        for i in d[0]:
+            name = i#self.textEditFilePath.toPlainText() #i
             f = open(name, 'r')
             content = f.read()
             f.close()
             if not content.split('\n')[0].find('\t') == -1:
-                KAISTSplitter().Split(content, name)
+                points, jump, num = splitter.Split(content, name, num)
+                if not len(jump) == 0:
+                    sets.append(points)
+                    jumps.append(jump)
+                    a.append(len(points))
             else:
                 Splitter().Split(content, name)
+
+        #x = []
+        #y = []
+        #for i in sets:
+        #    for j in i:
+        #        x.append(j.center.latitude)
+        #        y.append(j.center.longitude)
+        
+        #plt.plot(x, y, 's', marker='o', label='Lyakishev: ' + str(len(x)))
+        #x = []
+        #y = []
+        #with open('Privalov.wpt', 'r') as f:
+        #    for e in f:
+        #        e = e.split('\t')
+        #        x.append(float(e[0]))
+        #        y.append(float(e[1]))
+        #plt.plot(x, y, 's', marker='o', label='Privalov: ' + str(len(x)))
+        #x = []
+        #y = []
+        #with open('Tsarev.wpt', 'r') as f:
+        #    for e in f:
+        #        e = e.split('\t')
+        #        x.append(float(e[0]))
+        #        y.append(float(e[1]))
+        #plt.plot(x, y, 's', marker='o', label='Tsarev: ' + str(len(x)))
+
+
+        #plt.xticks(np.arange(-4000, 6000, 1000))
+        #plt.legend()
+        #plt.show()
+
+        #locations = LocationsCalculator().calcNewLocations(splitter.minX, splitter.maxX, splitter.minY, splitter.maxY, sets)
+        s = []
+        for i in sets:
+            s = s + i
+        #locations = LocationsCalculator().calcN(s)
+        locations = LocationsCalculator().calculate(s)
+
+        self.Controller.setTrainData(jumps, locations, window)
+
+        self.pushButtonClearGraphClick()
 
     def plot(self, content):
         arr = []
@@ -201,11 +333,31 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
         # Network().loadDataset(data)
 
     def plotTrain(self):
-        self.Controller.plotCharacteristics([])
+        self.Controller.plotTrain()
+
+    def pushButtonGenerateClick(self):
+        pass
+
+    def pushButtonNetSerializeClick(self):
+        self.Controller.Network.serialize()
+        
+        with open('characteristics', 'w+') as f:
+            json.dump({"locations": self.Controller.getLocationsCount(), 'window': self.Controller.getWindowSize(), 'stopWindow': self.Controller.lastLocationsWindow}, f)
+
+    def pushButtonNetDeserializeClick(self):
+        self.Controller.Network.load()
+
+        with open('characteristics', 'r') as f:
+            obj = json.load(f)
+            self.Controller.locationsCount = obj['locations']
+            self.Controller.Network.locationsCount = obj['locations']
+            self.Controller.Network.stopWindow = obj['stopWindow']
+            self.Controller.window = obj['window']
+            self.Controller.Network.window = obj['window']
 
     def train_click(self):
-        trainPercent = int(self.textEditTrainPercent_2.toPlainText())
-        self.Controller.Network.train(self.Controller.getTrainData(), trainPercent, self.Controller.minTime, self.Controller.maxTime, self.Controller.minPauseTime, self.Controller.maxPauseTime)
+        trainPercent = 100#int(self.textEditTrainPercent_2.toPlainText())
+        self.Controller.Network.train(self.Controller.getTrainData(), trainPercent, self.Controller.minTime, self.Controller.maxTime, self.Controller.minPauseTime, self.Controller.maxPauseTime, self.Controller.lastLocations, self.Controller.distancesInLocation, self.Controller.trainData, self.Controller.trainPoints, self.Controller.levyCoeff)
 
 
 def main():
