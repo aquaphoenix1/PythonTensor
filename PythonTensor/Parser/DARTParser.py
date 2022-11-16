@@ -15,8 +15,8 @@ class DARTParser(object):
                 pauseTime = int(splitData[5])
                 
                 d = PathPoint.distanceInMetersBetweenEarthCoordinates(firstPoint.latitude, firstPoint.longitude, secondPoint.latitude, secondPoint.longitude)
-                if d > 5000:
-                    d = 0
+                #if d > 5000:
+                #    d = 0
 
                 if len(plotData) == 0:
                     plotData.append(firstPoint)

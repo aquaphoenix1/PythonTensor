@@ -19,6 +19,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvas
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from CharacteristicCalculators.Plotter import Plotter
+from CharacteristicCalculators.Plotter import Intervals
 import matplotlib.pyplot as plt
 import os
 
@@ -46,6 +47,7 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
         self.pushButtonAddGraph.clicked.connect(self.pushButtonAddGraphClick)
         self.pushButtonClearGraph.clicked.connect(self.pushButtonClearGraphClick)
         self.pushButtonPlotNewWindow.clicked.connect(self.pushButtonPlotNewWindowClick)
+        self.pushButtonAddChecking.clicked.connect(self.pushButtonAddCheckingClick)
         self.model = SetListModel()
         #self.listView_6.setModel(self.model)
         #self.listView_6.selectionModel().selectionChanged.connect(self.listChangedEvent)
@@ -88,6 +90,21 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
 
     def checkBoxPlotTrainedClick(self):
         self.tabWidgetGraphChanged(-1)
+        
+    def pushButtonAddCheckingClick(self):
+        d = QtWidgets.QFileDialog.getOpenFileNames(self, 'Open file', 'C:/Users/aqua_/source/repos/PythonTensor/PythonTensor')
+        if(len(d[0]) != 0):
+            Plotter.clearGraph()
+            res = []
+            for fname in d[0]:
+                with open(fname, 'r') as f:
+                    obj = json.load(f, object_hook=CentralPoint.deserialize)
+                    res.append(obj)
+            Plotter.appendCData(res)
+            state = self.checkBoxPlotTrained.checkState()
+            if state == 2:
+                Plotter.plotT(self.tabWidgetGraph.currentIndex())
+            Plotter.plotG(self.tabWidgetGraph.currentIndex(), self.Controller.locationsCount, self.Controller.minTime, self.Controller.maxTime, self.Controller.minPauseTime, self.Controller.maxPauseTime, self.Controller.levyCoeff)
 
     def pushButtonAddGraphClick(self):
         d = QtWidgets.QFileDialog.getOpenFileNames(self, 'Open file', 'C:/Users/aqua_/source/repos/PythonTensor/PythonTensor/generated')
@@ -165,11 +182,19 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
         #self.fillTable(plotData)
 
     def serialize(self):
-        with open('locations.txt', 'w+') as f:
-            json.dump(LocationsCalculator.locations, f, ensure_ascii=False, default=Location.to_dict)
+        with open('locations.txt', 'w+') as locationsFile:
+            json.dump(LocationsCalculator.locations, locationsFile, ensure_ascii=False, default=Location.to_dict)
 
-        with open('data.txt', 'w+') as f:
-            json.dump(self.Controller.trainPoints, f, ensure_ascii=False, default=Jump.to_dict)
+        with open('controller.txt', 'w+') as controllerFile:
+            json.dump({"minTime": self.Controller.minTime, "maxTime": self.Controller.maxTime, "minPauseTime": self.Controller.minPauseTime, "maxPauseTime": self.Controller.maxPauseTime}, controllerFile)
+
+        with open('data.txt', 'w+') as trainPointsFile:
+            json.dump(self.Controller.trainPoints, trainPointsFile, ensure_ascii=False, default=Jump.to_dict)
+
+        with open('plotter', 'w+') as plotterFile:
+            json.dump({"trainedCountLocations": Plotter.trainedCountLocations, "trainedLengthInTraces": Plotter.trainedLengthInTraces, "maxTraceTime": Plotter.maxTraceTime, "trainedTime": Plotter.trainedTime, "trainedJumpLength": Plotter.trainedJumpLength, "trainedUnique": [float(x) for x in Plotter.trainedUnique], "trainedPauseTime": Plotter.trainedPauseTime}, plotterFile)    
+        with open('plotterIntervals', 'w+') as plotterIntervalsFile:
+            json.dump({"countLocations": [float(x) for x in Plotter.trainIntervals.countLocations], "jumpLength": Plotter.trainIntervals.jumpLength, "pauseTimes": Plotter.trainIntervals.pauseTimes, "tracesLength": Plotter.trainIntervals.tracesLength, "tracesTime": Plotter.trainIntervals.tracesTime, "unique": [float(x) for x in Plotter.trainIntervals.unique]}, plotterIntervalsFile)
 
     def deserialize(self):
         with open('locations.txt', 'r') as f:
@@ -199,7 +224,8 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
         #        #a = Controller.Network.normalize([point])
         #        data.append(point)
 
-        self.Controller.generate(self.Controller.generateLocationsArray, self.Controller.generateParametersArray)
+        ###################self.Controller.generate(self.Controller.generateLocationsArray, self.Controller.generateParametersArray)
+        self.Controller.Network.generateProcess(self.Controller)
         #result = Controller.Network.normalizer.Denormalize(result)
 
         #jumpList = []
@@ -341,19 +367,45 @@ class ExampleApp(QtWidgets.QMainWindow, UI.Ui_MainWindow):
     def pushButtonNetSerializeClick(self):
         self.Controller.Network.serialize()
         
-        with open('characteristics', 'w+') as f:
+        with open('netCharacteristics.txt', 'w+') as f:
             json.dump({"locations": self.Controller.getLocationsCount(), 'window': self.Controller.getWindowSize(), 'stopWindow': self.Controller.lastLocationsWindow}, f)
 
     def pushButtonNetDeserializeClick(self):
         self.Controller.Network.load()
 
-        with open('characteristics', 'r') as f:
-            obj = json.load(f)
+        with open("characteristics", "r") as file:
+            obj = json.load(file)
             self.Controller.locationsCount = obj['locations']
             self.Controller.Network.locationsCount = obj['locations']
             self.Controller.Network.stopWindow = obj['stopWindow']
             self.Controller.window = obj['window']
             self.Controller.Network.window = obj['window']
+
+        with open('controller.txt', 'r') as controllerFile:
+            obj = json.load(controllerFile)
+            self.Controller.minTime = obj['minTime']
+            self.Controller.maxTime = obj['maxTime']
+            self.Controller.minPauseTime = obj['minPauseTime']
+            self.Controller.maxPauseTime = obj['maxPauseTime']
+
+        with open('locations.txt', 'r') as locationsFile:
+            locations = json.load(locationsFile, object_hook=Location.hook)
+            LocationsCalculator.locations = locations
+
+        with open('plotter', 'r') as plotterFile:
+            obj = json.load(plotterFile)
+            Plotter.trainedCountLocations = obj['trainedCountLocations'], 
+            Plotter.trainedLengthInTraces = obj['trainedLengthInTraces'], 
+            Plotter.maxTraceTime = obj['maxTraceTime'], 
+            Plotter.trainedTime = obj['trainedTime'],
+            Plotter.trainedJumpLength = obj['trainedJumpLength'], 
+            Plotter.trainedUnique = obj['trainedUnique'], 
+            Plotter.trainedPauseTime = obj['trainedPauseTime']
+
+        with open('plotterIntervals', 'r') as plotterIntervalsFile:
+            obj = json.load(plotterIntervalsFile, object_hook=Intervals.deserialize)
+            Plotter.trainIntervals = obj
+
 
     def train_click(self):
         trainPercent = 100#int(self.textEditTrainPercent_2.toPlainText())

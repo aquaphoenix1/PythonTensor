@@ -1,0 +1,1 @@
+{"minTime": 30, "maxTime": 6900, "minPauseTime": 60, "maxPauseTime": 55920}

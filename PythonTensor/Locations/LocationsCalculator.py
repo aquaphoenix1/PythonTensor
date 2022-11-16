@@ -4,9 +4,16 @@ import numpy as np
 from PathPoint import CentralPoint
 from PathPoint import PathPoint
 import math
+from scipy.spatial import ConvexHull
+import matplotlib.pyplot as plt
+import matplotlib.tri as tri
+import time
+from random import random
+from random import seed
 
 class LocationsCalculator(object):
     locations = None
+    seed(round(time.time() * 1000))
 
     def calcN(self, data):
         locs = []
@@ -20,11 +27,13 @@ class LocationsCalculator(object):
                     location.Points.append(i)
                     d.remove(i)
             self.calculateBoundaries(location)
-            locs.append(location)
+            if(not len(location.Boundaries) == 0):
+                locs.append(location)
             location = None
         if not location == None and len(location.Points) > 0:
             self.calculateBoundaries(location)
-            locs.append(location)
+            if(not len(location.Boundaries) == 0):
+                locs.append(location)
         LocationsCalculator.locations = locs
         return locs
 
@@ -155,21 +164,72 @@ class LocationsCalculator(object):
         location.Boundaries = [[[mostLeft, mostTop], [mostRight, mostTop], [mostRight, mostBottom], [mostLeft, mostBottom], [mostLeft, mostTop]]]
       
     @staticmethod
+    def getLocationPointsCount(number):
+        location = next((x for x in LocationsCalculator.locations if x.Number == number), None)
+        return len(location.Points)
+
+    @staticmethod
     def getNextPointBetweenPointAndLocation(point, number):
         location = next((x for x in LocationsCalculator.locations if x.Number == number), None)
         most = -1
         loc = None
-        if (len(location.Boundaries) > 1):
-            for i in location.Boundaries:
-                c = LocationsCalculator.getCenter(i)
-                dist = PathPoint.distanceInMetersBetweenEarthCoordinates(point.latitude, point.longitude, c.latitude, c.longitude)
-                if most == -1 or dist < most and not dist == 0:
-                    most = dist
-                    loc = c
-        else:
-            loc = LocationsCalculator.getCenter(location.Boundaries[0])
+        #if (len(location.Boundaries) > 1):
+        #    for i in location.Boundaries:
+        #        c = LocationsCalculator.getCenter(i)
+        #        dist = PathPoint.distanceInMetersBetweenEarthCoordinates(point.latitude, point.longitude, c.latitude, c.longitude)
+        #        if most == -1 or dist < most and not dist == 0:
+        #            most = dist
+        #            loc = c
+        #else:
+        #    loc = LocationsCalculator.getCenter(location.Boundaries[0])
+
+        for i in location.Points:
+            c = i.center
+            dist = PathPoint.distanceInMetersBetweenEarthCoordinates(point.latitude, point.longitude, c.latitude, c.longitude)
+            if most == -1 or dist < most:
+                most = dist
+                loc = c
 
         return loc
+
+    @staticmethod
+    def getNextPointInsideLocation(point, number, time, mediumSpeed):
+        dist = mediumSpeed * time
+        location = next((x for x in LocationsCalculator.locations if x.Number == number), None)
+
+        distances = []
+
+        for i in location.Points:
+            if(i.center.number == point.number):
+                continue
+
+            c = i.center
+            distance = PathPoint.distanceInMetersBetweenEarthCoordinates(point.latitude, point.longitude, c.latitude, c.longitude)
+            d = abs(distance - dist)
+            distances.append([c.number, d])
+
+        distances.sort(key=lambda x: x[1])
+
+        lastV = 0.5
+        prevV = 0.0
+        for i in distances:
+            i[1] = lastV
+            prevV = lastV
+            lastV = prevV + ((1.0 - lastV) / 2.0)
+
+        selected = None
+        rand = random()
+        for i in distances:
+            if(i[1] > rand):
+                selected = i[0]
+                break
+
+        if(selected == None):
+            selected = distances[(len(distances)-1)][0]
+
+        point = next((x for x in location.Points if x.center.number == selected), None)
+
+        return point.center
 
     @staticmethod
     def getCenter(boundaries):
@@ -191,16 +251,40 @@ class LocationsCalculator(object):
             points.append([i.center.latitude, i.center.longitude])
 
         points = np.array(points)
-        try:
-            tri = Delaunay(points)
-        except Exception as e:
-            self.makeRectBoundaries(location)
+
+        #try:
+        #    tri = Delaunay(points)
+        #except Exception as e:
+        #    self.makeRectBoundaries(location)
+        #    return
+
+        #connections = points[tri.simplices]
+
+        if(len(points) < 3):
             return
-        connections = points[tri.simplices]
-        for c in connections:
+
+        hull = ConvexHull(points)
+        indices = hull.simplices
+        vertices = points[indices]
+
+        for c in vertices:
             con = []
             for i in c:
                 con.append(list(i))
             con.append(list(c[0]))
             location.Boundaries.append(con)
+
+        #location.Boundaries = vertices
+
+        #plt.plot(points[:,0], points[:,1], 'o')
+        #plt.plot(points[hull.vertices,0], points[hull.vertices,1], 'r--', lw=2)
+        #plt.plot(points[hull.vertices[0],0], points[hull.vertices[0],1], 'ro')
+        #plt.show()
+
+        #for c in connections:
+        #    con = []
+        #    for i in c:
+        #        con.append(list(i))
+        #    con.append(list(c[0]))
+        #    location.Boundaries.append(con)
         

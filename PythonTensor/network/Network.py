@@ -1,6 +1,6 @@
-import tensorflow as tf
-from tensorflow import keras
-from keras.models import Model
+#import tensorflow as tf
+#from tensorflow import keras
+#from keras.models import Model
 import numpy as np
 from Normalizer.MinMaxNormalizer import *
 import logging
@@ -12,6 +12,10 @@ from Locations.LocationsCalculator import LocationsCalculator
 import time
 from CharacteristicCalculators.Plotter import Plotter
 from PathPoint import PathPoint, CentralPoint
+from multiprocessing import Pool
+import time
+from functools import partial
+import os
 
 class Network(object):
     model = None
@@ -59,6 +63,11 @@ class Network(object):
         betweenLocationsX = []
         betweenLocationsY = []
 
+        self.totalTestX = []
+        self.totalTestY = []
+        self.totalTestParamsX = []
+        self.totalTestParamsY = []
+
         #self.normalizer.Restore(None)
 
         for arr in data:
@@ -102,6 +111,13 @@ class Network(object):
             #seq = json.dumps(x)
             #seq = json.dumps(t)
 
+            twentyPercent = int(len(trainX) / 100 * 20)
+
+            self.totalTestX.append(trainX[-twentyPercent:]) 
+            self.totalTestY.append(trainY[-twentyPercent:]) 
+            trainX = trainX[0:len(trainX)-twentyPercent]
+            trainY = trainY[0:len(trainY)-twentyPercent]
+
             for i in range(0, len(trainX)):
                 trainX[i] = self.glueArrays(trainX[i])
 
@@ -116,6 +132,13 @@ class Network(object):
             trainXParameters, trainYParameters = self.create_dataset(t, self.window - 1)
             #testXParameters, testYParameters = self.create_dataset(t[train_size:len(t)], self.window)
 
+            twentyPercent = int(len(trainXParameters) / 100 * 20)
+
+            self.totalTestParamsX.append(trainXParameters[-twentyPercent:]) 
+            self.totalTestParamsY.append(trainYParameters[-twentyPercent:]) 
+            trainXParameters = trainXParameters[0:len(trainXParameters)-twentyPercent]
+            trainYParameters = trainYParameters[0:len(trainYParameters)-twentyPercent]
+
             for i in range(0, len(trainX)):
                 trainXParameters[i] = self.glueArrays(trainXParameters[i]) + trainX[i].copy()
 
@@ -126,10 +149,20 @@ class Network(object):
             #totalTestXParameters = totalTestXParameters + testXParameters
             totalTrainYParameters = totalTrainYParameters + trainYParameters
             #totalTestYParameters = totalTestYParameters + testYParameters
+
+        for i in range(len(self.totalTestX)):
+            result = self.totalTestY[i]
+            timeResult = self.totalTestParamsY[i]
+            firstPoints = []
+            for j in range(len(result)):
+                firstPoints.append(trainPoints[i][j].destination)
+
+            with open('lastTestX' + str(i) + '.txt', 'w+') as f:
+                    json.dump({"Locations": result, "Time": np.array(timeResult).tolist(), "Points": firstPoints}, f, default=CentralPoint.serialize)
             
         self.fit(self.model, np.array(totalTrainX), np.array(totalTrainY), validation_data=(np.array(totalTestX), np.array(totalTestY)), batchSize=2, epochs=60)
         
-        self.fit(self.timeModel, np.array(totalTrainXParameters), np.array(totalTrainYParameters), batchSize=2)
+        self.fit(self.timeModel, np.array(totalTrainXParameters), np.array(totalTrainYParameters), batchSize=2, epochs=60)
 
         stopData = []
         stopDataY = []
@@ -198,7 +231,7 @@ class Network(object):
                 stopData.append(sx)
                 stopDataY.append(0)
 
-        self.fit(self.stopModel, np.array(stopData), np.array(stopDataY), batchSize=3)
+        self.fit(self.stopModel, np.array(stopData), np.array(stopDataY), batchSize=3, epochs=60)
 
         totalInside = 0
         totalOutside = 0
@@ -221,7 +254,7 @@ class Network(object):
 
         print('totalInside: ' + str(totalInside) + ' totalOutside: ' + str(totalOutside))
 
-        self.fit(self.betweenLocationsModel, np.array(betweenLocationsX), np.array(betweenLocationsY), batchSize=2)
+        self.fit(self.betweenLocationsModel, np.array(betweenLocationsX), np.array(betweenLocationsY), batchSize=2, epochs=60)
 
     def normalize(self, data):
         return self.normalizer.Normalize(data)
@@ -231,13 +264,14 @@ class Network(object):
         self.layers.append(layer)
 
     def initNetwork(self, window, featuresCount, locationsCount, histCount, stopWindow):
+        import tensorflow as tf
+        from tensorflow import keras
+        from keras.models import Model
+
         self.layers = []
         self.model = keras.models.Sequential()
         self.addLayer(tf.keras.layers.Input(shape=(window * locationsCount)))
         self.addLayer(tf.keras.layers.Dense(80))
-        #self.addLayer(tf.keras.layers.Dense(locationsCount))
-        #self.addLayer(tf.keras.layers.Dense(20))
-        #self.addLayer(tf.keras.layers.LSTM(30))
         self.addLayer(tf.keras.layers.Dense(locationsCount, activation=tf.keras.activations.softmax))
 
         self.model.compile(optimizer='adam', loss='categorical_crossentropy')
@@ -246,7 +280,6 @@ class Network(object):
         self.timeModel = keras.models.Sequential()
         self.timeModel.add(tf.keras.layers.Input(shape=(window * locationsCount + (window - 1) * 2)))
         self.timeModel.add(tf.keras.layers.Dense(80))
-        #self.timeModel.add(tf.keras.layers.Dense(20))
         self.timeModel.add(tf.keras.layers.Dense(2))
 
         self.timeModel.compile(optimizer='adam', loss='mse')
@@ -267,14 +300,15 @@ class Network(object):
 
         self.betweenLocationsModel.compile(optimizer='adam', loss='mse')
 
-    def fit(self, model, X, Y, validation_data=None, batchSize=None, epochs=100):
+    def fit(self, model, X, Y, validation_data=None, batchSize=None, epochs=60):
+        import tensorflow as tf
         if(model != None):
             #if batchSize == None:
             #    batchSize = len(X)
             with tf.device('/CPU:0'):
                 model.fit(X, Y, epochs=epochs, validation_data = validation_data, batch_size = batchSize)
 
-    def generate(self, locations, parameters, countArr, firstPointsArray, minPauseTime, maxPauseTime, levyCoeff):
+    def generate(self, locations, parameters, countArr, firstPointsArray, minPauseTime, maxPauseTime, levyCoeff, controller):
         totalInside = 0
         totalOutside = 0
 
@@ -299,6 +333,14 @@ class Network(object):
                 print('not enough points')
                 continue
 
+            mediumSpeed = 0
+            for i in range(len(firstPoints) - 1):
+                point = firstPoints[i+1]
+                c = firstPoints[i]
+                mediumSpeed += PathPoint.distanceInMetersBetweenEarthCoordinates(point.latitude, point.longitude, c.latitude, c.longitude) / Levy.restoreLevy(timeResult[i][0], controller.minTime, controller.maxTime / levyCoeff)
+            
+            mediumSpeed /= len(timeResult)
+
             blr = []
             blt = []
             blp = []
@@ -310,7 +352,7 @@ class Network(object):
                     blp.append(firstPointsArray[i][j])
                     blp.append(firstPointsArray[i][j+1])
 
-            while(i1 < 10 and not isStop == True):#countArr[i]):
+            while(i1 < countArr[i] * 1.5 and not isStop == True):#countArr[i]):
                 print(str(i) + ':' + str(i1 + 1) + ' from ' + str(countArr[i]))
 
                 glue = self.glueArrays(startPoints)
@@ -321,8 +363,6 @@ class Network(object):
                 print('Inside: ' + str(betweenLocations[0]) + ' Outside: ' + str(betweenLocations[1]))
 
                 betweenLocations = betweenLocations.index(max(betweenLocations))
-
-                a = [0] * self.locationsCount
 
                 outside = False
 
@@ -353,18 +393,46 @@ class Network(object):
                     outside = True
                 else:
                     selected = startPoints[len(startPoints) - 1].index(1)
-                    totalInside += 1
+                    count = LocationsCalculator.getLocationPointsCount(selected)
+                    if(count < 2):
+                        res = self.model.predict([glue])
 
+                        res = list(res[0])
+
+                        rand = random()
+
+                        res.pop(startPoints[len(startPoints) - 1].index(1))
+
+                        dictionary = dict(enumerate(res))
+                        dictionary = sorted(dictionary.items(), key=lambda x: x[1])
+                        selected = -1
+                        for k, v in dictionary:
+                            if v > rand:
+                                if not res.index(max(res)) == k:
+                                    print('next location is not max')
+                                selected = k
+                                break
+                        if selected == -1:
+                            selected = res.index(max(res))
+
+                        totalOutside += 1
+
+                        blr.append(startPoints[len(startPoints) - 1].copy())
+                        outside = True
+                    else:
+                        totalInside += 1
+
+                a = [0] * self.locationsCount
                 a[selected] = 1
 
-                point = LocationsCalculator.getNextPointBetweenPointAndLocation(firstPoints[len(firstPoints)-1], selected)
-
                 if(outside == True):
+                    point = LocationsCalculator.getNextPointBetweenPointAndLocation(firstPoints[len(firstPoints)-1], selected)
+
+                    firstPoints.append(point)
+
                     blr.append(a.copy())
                     blp.append(firstPoints[len(firstPoints)-1])
                     blp.append(point)
-
-                firstPoints.append(point)
 
                 res = a
 
@@ -390,6 +458,11 @@ class Network(object):
                 timePoints.append(res)
                 timeResult.append(res)
                 timePoints.pop(0)
+
+                if(outside == False):
+                    point = LocationsCalculator.getNextPointInsideLocation(firstPoints[len(firstPoints)-1], selected, Levy.restoreLevy(res[0], controller.minTime, controller.maxTime / levyCoeff), mediumSpeed)
+
+                    firstPoints.append(point)
 
                 stopEnter = result[-self.stopWindow:]
                 stopEnter = self.glueArrays(stopEnter)
@@ -494,10 +567,13 @@ class Network(object):
         self.betweenLocationsModel.save("models/betweenLocationsModel")
 
     def load(self):
-        self.model = keras.models.load_model("models/model")
-        self.timeModel = keras.models.load_model("models/timeModel")
-        self.stopModel = keras.models.load_model("models/stopModel")
-        self.betweenLocationsModel = keras.models.load_model("models/betweenLocationsModel")
+        pass
+        #from keras.models import load_model
+
+        #self.model = load_model("models/model")
+        #self.timeModel = load_model("models/timeModel")
+        #self.stopModel = load_model("models/stopModel")
+        #self.betweenLocationsModel = load_model("models/betweenLocationsModel")
 
     def predict(self, X, Y):
         result = []
@@ -521,3 +597,166 @@ class Network(object):
             dataY.append(dataset[i + look_back])
             i = i + 1
         return dataX, dataY
+
+    def generateProcess(self, controller):
+        #start_time = time.time()
+        #self.predictData(controller, 1)
+        #self.predictData(controller, 1)
+        #self.predictData(controller, 1)
+        #self.predictData(controller, 1)
+        #print("--- %s seconds ---" % (time.time() - start_time))
+        countToCalculate = 5000
+        allRes = []
+        poolProcesses = os.cpu_count()
+        start_time = time.time()
+        with Pool(processes = poolProcesses) as pool:
+            res = pool.map(partial(self.predictData, ([controller, LocationsCalculator.locations, Plotter.maxTraceTime, Plotter.trainIntervals])), range(countToCalculate))
+        allRes.append(res)
+        print("--- %s seconds ---" % (time.time() - start_time))
+
+    def predictData(self, data, index):
+        from keras.models import load_model
+
+        controller = data[0]
+        LocationsCalculator.locations = data[1]
+        maxTraceTime = data[2]
+        trainIntervals = data[3]
+
+        model = load_model("models/model")
+        timeModel = load_model("models/timeModel")
+        stopModel = load_model("models/stopModel")
+        betweenLocationsModel = load_model("models/betweenLocationsModel")
+
+        generatedCount = 0
+        isStop = False
+        startPoints = [[0] * self.locationsCount, [0] * self.locationsCount, [0] * self.locationsCount, [0] * self.locationsCount, [0] * self.locationsCount]
+        startPoints[0][0] = 1
+        startPoints[1][1] = 1
+        startPoints[2][1] = 1
+        startPoints[3][0] = 1
+        startPoints[4][0] = 1
+
+        locs = startPoints.copy()
+
+        timePoints = [[0.04270244525723281, 0.0], [0.0, 6.107682048886656e-05], [0.05024291912937793, 0.28987704889569355], [0.39358159311554197, 2.377966898667236e-103]]
+        timeResult = timePoints.copy()
+
+        allPoints = [CentralPoint(-141.82781784612698, 517.7097847500308, 0), CentralPoint(-255.15099254362417, 198.23341618557382, 1), CentralPoint(-257.01172031057325, 199.41523615579274, 2), CentralPoint(-139.67705836388706, 492.2189819884441, 3), CentralPoint(-588.8921239628572, -297.25939287414906, 4)]
+
+        traceTime = 0
+        for tr in timeResult:
+            traceTime = traceTime + tr[0] + tr[1]
+
+        while(generatedCount < 100 and not isStop == True):
+            glue = self.glueArrays(startPoints)
+            betweenLocations = betweenLocationsModel.predict([glue + timePoints[len(timePoints)-1]])
+            betweenLocations = list(betweenLocations[0])
+            betweenLocations = betweenLocations.index(max(betweenLocations))
+
+            locRes = model.predict([glue])
+            locRes = list(locRes[0])
+
+            if betweenLocations == 1:
+                rand = random()
+
+                dictionary = dict(enumerate(locRes))
+                dictionary = sorted(dictionary.items(), key=lambda x: x[1])
+                selected = -1
+                for k, v in dictionary:
+                    if v > rand:
+                        selected = k
+                        break
+                if selected == -1:
+                    selected = locRes.index(max(locRes))
+
+                point = LocationsCalculator.getNextPointBetweenPointAndLocation(allPoints[len(allPoints)-1], selected)
+            else:
+                selected = startPoints[len(startPoints) - 1].index(1)
+                count = LocationsCalculator.getLocationPointsCount(selected)
+                if(count < 2):
+                    rand = random()
+
+                    locRes.pop(startPoints[len(startPoints) - 1].index(1))
+
+                    dictionary = dict(enumerate(locRes))
+                    dictionary = sorted(dictionary.items(), key=lambda x: x[1])
+                    selected = -1
+                    for k, v in dictionary:
+                        if v > rand:
+                            selected = k
+                            break
+                    if selected == -1:
+                        selected = locRes.index(max(locRes))
+
+                    point = LocationsCalculator.getNextPointBetweenPointAndLocation(allPoints[len(allPoints)-1], selected)
+                else:
+                    point = None
+
+            a = [0] * self.locationsCount
+            a[selected] = 1
+
+            glue = self.glueArrays(timePoints) + glue
+            res = timeModel.predict(np.array([glue]))
+            res = list(res[0])
+            if res[1] < 0:
+                res[1] = 0
+            if res[0] < 0:
+                res[0] = 0
+
+            timePoints.append(res)
+            timeResult.append(res)
+            timePoints.pop(0)
+
+            if(point == None):
+                mediumSpeed = 0
+                for i in range(len(allPoints) - 1):
+                    cp = allPoints[i+1]
+                    c = allPoints[i]
+                    mediumSpeed += PathPoint.distanceInMetersBetweenEarthCoordinates(cp.latitude, cp.longitude, c.latitude, c.longitude) / Levy.restoreLevy(timeResult[i][0], controller.minTime, controller.maxTime / controller.levyCoeff)
+            
+                mediumSpeed /= len(timeResult)
+                point = LocationsCalculator.getNextPointInsideLocation(allPoints[len(allPoints)-1], selected, Levy.restoreLevy(res[0], controller.minTime, controller.maxTime / controller.levyCoeff), mediumSpeed)
+
+            allPoints.append(point)
+
+            startPoints.append(a)
+            locs.append(a)
+            startPoints.pop(0)
+
+            stopEnter = locs[-self.stopWindow:]
+            stopEnter = self.glueArrays(stopEnter)
+
+            traceTime = traceTime + res[0] + res[1]
+            
+            stopEnter.append(traceTime / maxTraceTime)
+
+            length = [0] * self.locationsCount
+
+            for locIndex in range(len(locs) - 1):
+                if(locs[locIndex].index(1) == locs[locIndex+1].index(1)):
+                    length[locs[locIndex].index(1)] += PathPoint.distanceInMetersBetweenEarthCoordinates(allPoints[locIndex].latitude, allPoints[locIndex].longitude, allPoints[locIndex + 1].latitude, allPoints[locIndex + 1].longitude)
+
+            d, _ = Plotter.calculateTracesLength([length], False)
+            count = Plotter.countInIntervals(d, trainIntervals.tracesLength)
+            s = sum(count)
+            if not s == 0:
+                count = [c / s for c in count]
+
+            stopEnter = stopEnter + count
+
+            d, _ = Plotter.calculatePauseTimes([[[], [x]] for x in timeResult], controller.minPauseTime, controller.maxPauseTime, controller.levyCoeff, False)
+            count = Plotter.countInIntervals(d, trainIntervals.pauseTimes)
+            s = sum(count)
+            if not s == 0:
+                count = [c / s for c in count]
+
+            stopEnter = stopEnter + count
+
+            stop = list(stopModel.predict(np.array([stopEnter], dtype=np.float32))[0])[0]
+
+            rand = random()
+            if stop > rand:
+                isStop = True
+            generatedCount += 1
+
+        return locs

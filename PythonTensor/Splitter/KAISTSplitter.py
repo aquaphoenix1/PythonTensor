@@ -79,9 +79,6 @@ class KAISTSplitter(AbstractSplitter):
             i+=1
             while(currentPathPoint.newAddPoint(data, i) and not currentPathPoint.isOutOfRange()):
                 i+=1
-                if i == 182:
-                    a = 0
-                pass
             if currentPathPoint.stopTimeReached():
                 x = (currentPathPoint.sumX - currentPathPoint.xcoord[len(currentPathPoint.xcoord) - 1]) / (len(currentPathPoint.xcoord) - 1)
                 y = (currentPathPoint.sumY - currentPathPoint.ycoord[len(currentPathPoint.ycoord) - 1]) / (len(currentPathPoint.ycoord) - 1)

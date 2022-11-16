@@ -6,6 +6,7 @@ from PathPoint import PathPoint
 from Jump import Jump
 from Levy import Levy
 import math
+import json
 
 import json
 from json import JSONEncoder
@@ -14,8 +15,30 @@ class Intervals:
     def __init__(self):
         self.tracesLength = None
 
+    def to_dict(u):
+      dict = {
+        "countLocations": u.countLocations,
+        "jumpLength": u.jumpLength,
+        "pauseTimes": u.pauseTimes,
+        "tracesLength": u.tracesLength,
+        "tracesTime": u.tracesTime,
+        "unique": u.unique
+      }
+      return dict
+
+    def deserialize(obj):
+        trainIntervals = Intervals()
+        trainIntervals.countLocations = obj['countLocations']
+        trainIntervals.jumpLength = obj['jumpLength']
+        trainIntervals.pauseTimes = obj['pauseTimes']
+        trainIntervals.tracesLength = obj['tracesLength']
+        trainIntervals.tracesTime = obj['tracesTime']
+        trainIntervals.unique = obj['unique']
+        return trainIntervals
+
 class Plotter(object):
     generatedData = []
+    checkedData = []
     intervalsCount = 20
     minInInterval = 5
 
@@ -41,69 +64,103 @@ class Plotter(object):
         Plotter.generatedData.append(data)
 
     @staticmethod
+    def appendCData(data):
+        Plotter.checkedData.append(data)
+
+    @staticmethod
+    def plotGTracesLength(data, label, linestyle, locationsCount, x):
+        for j in range(len(data)):
+            distancesInLocation = []
+            for i in range(len(data[j])):
+                distancesInLocation.append([0] * locationsCount)
+                for k in range(len(data[j][i][0]) - 1):
+                    if data[j][i][0][k].index(1) == data[j][i][0][k+1].index(1):
+                        distancesInLocation[i][data[j][i][0][k].index(1)] += PathPoint.distanceInMetersBetweenEarthCoordinates(data[j][i][2][k].latitude, data[j][i][2][k].longitude, data[j][i][2][k+1].latitude, data[j][i][2][k+1].longitude)
+            trained, _ = Plotter.calculateTracesLength(distancesInLocation, False)
+
+            hist = np.histogram(trained, bins=x, density=True)[0]
+            bin_centers = 0.5*(np.array(x[1:])+np.array(x[:-1]))
+            Plotter.ax.plot(bin_centers, hist, label = label + str(j), linestyle=linestyle)
+
+    @staticmethod
+    def plotGTracesTime(data, x, minTime, maxTime, minPauseTime, maxPauseTime, levyCoeff, label, linestyle):
+        for j in range(len(data)):
+            trained, _ = Plotter.tracesTime(data[j], minTime, maxTime, minPauseTime, maxPauseTime, levyCoeff, False)
+            hist = np.histogram(trained, bins=x, density=True)[0]
+            bin_centers = 0.5*(np.array(x[1:])+np.array(x[:-1]))
+            Plotter.ax.plot(bin_centers, hist, label = label + str(j), linestyle=linestyle)
+
+    @staticmethod
+    def plotGJumpLength(data, x, label, linestyle):
+         for j in range(len(data)):
+            jumps = []
+            for i in data[j]:
+                j1 = []
+                for k in range(len(i[2]) - 1):
+                    j1.append(Jump(i[2][k], i[2][k+1], 0, 0))
+                jumps.append(j1)
+
+            trained, _ = Plotter.calculateJumpLength(jumps)
+            hist = np.histogram(trained, bins=x, density=True)[0]
+            bin_centers = 0.5*(np.array(x[1:])+np.array(x[:-1]))
+            Plotter.ax.plot(bin_centers, hist, label = label + str(j), linestyle=linestyle)
+
+    @staticmethod
+    def plotGPauseTime(data, x, minPauseTime, maxPauseTime, levyCoeff, label, linestyle):
+        for j in range(len(Plotter.generatedData)):
+            trained, _ = Plotter.calculatePauseTimes(data[j], minPauseTime, maxPauseTime, levyCoeff, False)
+            hist = np.histogram(trained, bins=x, density=True)[0]
+            bin_centers = 0.5*(np.array(x[1:])+np.array(x[:-1]))
+            Plotter.ax.plot(bin_centers, hist, label = label + str(j), linestyle = linestyle)
+
+    @staticmethod
+    def plotGLocationsCount(data, x, locationsCount, label, linestyle):
+        for j in range(len(data)):
+            trained, _ = Plotter.calculateLocationsCount(data[j], locationsCount)
+            Plotter.ax.plot(x, trained, label = label + str(j), linestyle=linestyle)
+
+    @staticmethod
+    def plotGUnique(data, x, locationsCount, label, linestyle):
+        for j in range(len(data)):
+            trained, _ = Plotter.calculateDifferentLocationsCount(data[j], locationsCount)
+            hist = np.histogram(trained, bins=x, density=True)[0]
+            bin_centers = 0.5*(np.array(x[1:])+np.array(x[:-1]))
+            Plotter.ax.plot(bin_centers, hist, label = label + str(j), linestyle=linestyle)
+
+    @staticmethod
     def plotG(index, locationsCount, minTime, maxTime, minPauseTime, maxPauseTime, levyCoeff):
         x = None
         if index == 0:
             x = Plotter.trainIntervals.tracesLength
-            for j in range(len(Plotter.generatedData)):
-                distancesInLocation = []
-                for i in range(len(Plotter.generatedData[j])):
-                    distancesInLocation.append([0] * locationsCount)
-                    for k in range(len(Plotter.generatedData[j][i][0]) - 1):
-                        if Plotter.generatedData[j][i][0][k].index(1) == Plotter.generatedData[j][i][0][k+1].index(1):
-                            distancesInLocation[i][Plotter.generatedData[j][i][0][k].index(1)] += PathPoint.distanceInMetersBetweenEarthCoordinates(Plotter.generatedData[j][i][2][k].latitude, Plotter.generatedData[j][i][2][k].longitude, Plotter.generatedData[j][i][2][k+1].latitude, Plotter.generatedData[j][i][2][k+1].longitude)
-                trained, _ = Plotter.calculateTracesLength(distancesInLocation, False)
-
-                hist = np.histogram(trained, bins=x, density=True)[0]
-                bin_centers = 0.5*(np.array(x[1:])+np.array(x[:-1]))
-                Plotter.ax.plot(bin_centers, hist, label = 'generated' + str(j))
+            Plotter.plotGTracesLength(Plotter.generatedData, 'generated', 'dashed', locationsCount, x)            
+            Plotter.plotGTracesLength(Plotter.checkedData, 'checked', 'dotted', locationsCount, x)            
         elif index == 1:
             x = Plotter.trainIntervals.tracesTime
-
-            for j in range(len(Plotter.generatedData)):
-                trained, _ = Plotter.tracesTime(Plotter.generatedData[j], minTime, maxTime, minPauseTime, maxPauseTime, levyCoeff, False)
-                hist = np.histogram(trained, bins=x, density=True)[0]
-                bin_centers = 0.5*(np.array(x[1:])+np.array(x[:-1]))
-                Plotter.ax.plot(bin_centers, hist, label = 'generated' + str(j))
+            Plotter.plotGTracesTime(Plotter.generatedData, x, minTime, maxTime, minPauseTime, maxPauseTime, levyCoeff, 'generated', 'dashed')
+            Plotter.plotGTracesTime(Plotter.checkedData, x, minTime, maxTime, minPauseTime, maxPauseTime, levyCoeff, 'checked', 'dotted')
         elif index == 2:
             x = Plotter.trainIntervals.jumpLength
-
-            for j in range(len(Plotter.generatedData)):
-                jumps = []
-                for i in Plotter.generatedData[j]:
-                    j1 = []
-                    for k in range(len(i[2]) - 1):
-                        j1.append(Jump(i[2][k], i[2][k+1], 0, 0))
-                    jumps.append(j1)
-
-                trained, _ = Plotter.calculateJumpLength(jumps)
-                hist = np.histogram(trained, bins=x, density=True)[0]
-                bin_centers = 0.5*(np.array(x[1:])+np.array(x[:-1]))
-                Plotter.ax.plot(bin_centers, hist, label = 'generated' + str(j))
+            Plotter.plotGJumpLength(Plotter.generatedData, x, 'generated', 'dashed')
+            Plotter.plotGJumpLength(Plotter.checkedData, x, 'checked', 'dotted')
         elif index == 3:
             x = Plotter.trainIntervals.pauseTimes
-            for j in range(len(Plotter.generatedData)):
-                trained, _ = Plotter.calculatePauseTimes(Plotter.generatedData[j], minPauseTime, maxPauseTime, levyCoeff, False)
-                hist = np.histogram(trained, bins=x, density=True)[0]
-                bin_centers = 0.5*(np.array(x[1:])+np.array(x[:-1]))
-                Plotter.ax.plot(bin_centers, hist, label = 'generated' + str(j))
+            Plotter.plotGPauseTime(Plotter.generatedData, x, minPauseTime, maxPauseTime, levyCoeff, 'generated', 'dashed')
+            Plotter.plotGPauseTime(Plotter.checkedData, x, minPauseTime, maxPauseTime, levyCoeff, 'checked', 'dotted')
         elif index == 4:
             x = np.arange(locationsCount)
-            for j in range(len(Plotter.generatedData)):
-                trained, _ = Plotter.calculateLocationsCount(Plotter.generatedData[j], locationsCount)
-                #Plotter.ax.bar(x, height=trained)
-                Plotter.ax.plot(x, trained, label = 'generated' + str(j))
+            Plotter.plotGLocationsCount(Plotter.generatedData, x, locationsCount, 'generated', 'dashed')
+            Plotter.plotGLocationsCount(Plotter.checkedData, x, locationsCount, 'checked', 'dotted')
         elif index == 5:
             x = Plotter.trainIntervals.unique
-            for j in range(len(Plotter.generatedData)):
-                trained, _ = Plotter.calculateDifferentLocationsCount(Plotter.generatedData[j], locationsCount)
-                hist = np.histogram(trained, bins=x, density=True)[0]
-                bin_centers = 0.5*(np.array(x[1:])+np.array(x[:-1]))
-                Plotter.ax.plot(bin_centers, hist, label = 'generated' + str(j))
+            Plotter.plotGUnique(Plotter.generatedData, x, locationsCount, 'generated', 'dashed')
+            Plotter.plotGUnique(Plotter.checkedData, x, locationsCount, 'checked', 'dotted')
 
         Plotter.ax.legend()
         Plotter.ax.set_xticks(x)
 
+    @staticmethod
+    def plotTSelected(index, train, distancesInLocation, trainPoints, locationsCount, minTime, maxTime, minPauseTime, maxPauseTime, levyCoeff):
+        pass
 
     @staticmethod
     def plotT(index):
@@ -145,6 +202,7 @@ class Plotter(object):
     def clear():
         Plotter.clearGraph()
         Plotter.generatedData = []
+        Plotter.checkedData = []
 
     @staticmethod
     def clearGraph():
@@ -348,7 +406,7 @@ class Plotter(object):
             for j in i[0]:
                 resTrained[j.index(1)] = resTrained[j.index(1)] + 1
 
-        return resTrained, np.arange(locationsCount)
+        return resTrained, list(np.arange(locationsCount))
 
     @staticmethod
     def calculatePauseTimes(train, minPauseTime, maxPauseTime, levyCoeff, isCalcIntervals = True):
@@ -503,7 +561,7 @@ class Plotter(object):
 
             return data
         
-    @staticmethod
+    @staticmethod 
     def plotData(x, data1, yLabel=''):
         if not data1 == None:
         #    hist, bins = np.histogram(data1, bins=x)
